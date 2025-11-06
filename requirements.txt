@@ -3,3 +3,4 @@ spotipy
 psycopg2-binary
 gunicorn
 python-dotenv
+flask-cors

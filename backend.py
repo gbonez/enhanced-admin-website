@@ -3,6 +3,7 @@ import re
 from urllib.parse import urlparse
 from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory
+from flask_cors import CORS
 import psycopg2
 import spotipy
 from spotipy import Spotify
@@ -19,6 +20,8 @@ SCOPE = "playlist-read-private playlist-read-collaborative user-library-read"
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
 app.config["JSON_SORT_KEYS"] = False
+# Enable CORS for GitHub Pages and local dev; adjust origins as needed
+CORS(app, origins=["https://gbonez.github.io", "http://localhost:5000"]) 
 
 # Try to init Spotify client (best-effort)
 _sp = None

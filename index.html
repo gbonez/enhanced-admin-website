@@ -207,8 +207,18 @@
     </div>
 
     <script>
+        // API base — point this to your Railway public URL
+        const API_BASE = "https://enhanced-admin-website-production.up.railway.app";
+
         async function postJson(path, body) {
-            const res = await fetch(path, {
+            // allow absolute URLs, otherwise prefix with API_BASE for /api routes
+            let url = path;
+            if (!path.startsWith('http')) {
+                // ensure path begins with a slash
+                if (!path.startsWith('/')) path = '/' + path;
+                url = (API_BASE ? API_BASE.replace(/\/$/, '') : '') + path;
+            }
+            const res = await fetch(url, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(body)
