@@ -1,0 +1,155 @@
+<!doctype html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>Blacklist / Whitelist Admin</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, Roboto, Arial;
+            max-width: 900px;
+            margin: 32px auto;
+            color: #111;
+        }
+
+        h1 {
+            margin-bottom: 8px;
+        }
+
+        .card {
+            border: 1px solid #e3e3e3;
+            padding: 16px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+        }
+
+        input[type=text] {
+            width: 70%;
+            padding: 8px;
+            margin-right: 8px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+
+        select {
+            padding: 6px;
+            margin-right: 8px;
+        }
+
+        button {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: none;
+            background: #2563eb;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:disabled {
+            opacity: 0.6
+        }
+
+        .log {
+            margin-top: 12px;
+            white-space: pre-wrap;
+            background: #fafafa;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px dashed #eee;
+        }
+
+        .ok {
+            color: green;
+        }
+
+        .err {
+            color: red;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Blacklist / Whitelist Admin</h1>
+
+    <div class="card">
+        <h3>1) Blacklist a Track (fixed = true)</h3>
+        <input id="track_input" type="text" placeholder="paste spotify track link or id">
+        <button id="track_btn">Blacklist Track</button>
+        <div id="track_out" class="log"></div>
+    </div>
+
+    <div class="card">
+        <h3>2) Blacklist a Playlist</h3>
+        <input id="playlist_input" type="text" placeholder="paste spotify playlist link or id">
+        <label>
+            Blacklisted?
+            <select id="playlist_flag">
+                <option value="true">true</option>
+                <option value="false">false</option>
+            </select>
+        </label>
+        <button id="playlist_btn">Upsert Playlist</button>
+        <div id="playlist_out" class="log"></div>
+    </div>
+
+    <div class="card">
+        <h3>3) Whitelist a Profile (profile id or playlist link to add owner)</h3>
+        <input id="profile_input" type="text" placeholder="paste profile or playlist link or id">
+        <button id="profile_btn">Whitelist</button>
+        <div id="profile_out" class="log"></div>
+    </div>
+
+    <script>
+        async function postJson(path, body) {
+            const res = await fetch(path, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body)
+            });
+            return res.json();
+        }
+
+        document.getElementById("track_btn").addEventListener("click", async () => {
+            const val = document.getElementById("track_input").value.trim();
+            const out = document.getElementById("track_out");
+            out.textContent = "Sending...";
+            try {
+                const r = await postJson("/api/blacklist_track", { input: val });
+                if (r.ok) out.innerHTML = "<span class='ok'>" + r.msg + "</span>";
+                else out.innerHTML = "<span class='err'>" + (r.error || JSON.stringify(r)) + "</span>";
+            } catch (e) {
+                out.innerHTML = "<span class='err'>Network error: " + e + "</span>";
+            }
+        });
+
+        document.getElementById("playlist_btn").addEventListener("click", async () => {
+            const val = document.getElementById("playlist_input").value.trim();
+            const flag = document.getElementById("playlist_flag").value === "true";
+            const out = document.getElementById("playlist_out");
+            out.textContent = "Sending...";
+            try {
+                const r = await postJson("/api/blacklist_playlist", { input: val, blacklisted: flag });
+                if (r.ok) out.innerHTML = "<span class='ok'>" + r.msg + "</span>";
+                else out.innerHTML = "<span class='err'>" + (r.error || JSON.stringify(r)) + "</span>";
+            } catch (e) {
+                out.innerHTML = "<span class='err'>Network error: " + e + "</span>";
+            }
+        });
+
+        document.getElementById("profile_btn").addEventListener("click", async () => {
+            const val = document.getElementById("profile_input").value.trim();
+            const out = document.getElementById("profile_out");
+            out.textContent = "Sending...";
+            try {
+                const r = await postJson("/api/whitelist_profile", { input: val });
+                if (r.ok) out.innerHTML = "<span class='ok'>" + r.msg + "</span>";
+                else out.innerHTML = "<span class='err'>" + (r.error || JSON.stringify(r)) + "</span>";
+            } catch (e) {
+                out.innerHTML = "<span class='err'>Network error: " + e + "</span>";
+            }
+        });
+    </script>
+</body>
+
+</html>
