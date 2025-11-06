@@ -66,11 +66,117 @@
         .err {
             color: red;
         }
+
+        /* Global status box shown under the page title */
+        #global_status {
+            margin-top: 6px;
+            margin-bottom: 14px;
+            font-weight: 600;
+            border-style: solid;
+            border-width: 1px;
+            background: #ffffff;
+        }
+
+        #global_status.ok {
+            color: green;
+            border-color: rgba(16, 185, 129, 0.15);
+            background: #ecfdf5;
+        }
+
+        #global_status.err {
+            color: red;
+            border-color: rgba(249, 115, 22, 0.08);
+            background: #fff7ed;
+        }
+
+        /* Theme variables and dark-mode support */
+        :root {
+            --bg: #ffffff;
+            --text: #111827;
+            --card-bg: #ffffff;
+            --muted-bg: #fafafa;
+            --border: #e3e3e3;
+            --button-bg: #2563eb;
+            --button-text: #ffffff;
+            --input-bg: #ffffff;
+            --log-bg: #fafafa;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg: #0b1220;
+                --text: #e6eef8;
+                --card-bg: #0f1724;
+                --muted-bg: #071127;
+                --border: #1f2937;
+                --button-bg: #2563eb;
+                --button-text: #ffffff;
+                --input-bg: #071127;
+                --log-bg: #071127;
+            }
+        }
+
+        /* allow forcing dark by adding .dark to body */
+        body.dark {
+            --bg: #0b1220;
+            --text: #e6eef8;
+            --card-bg: #0f1724;
+            --muted-bg: #071127;
+            --border: #1f2937;
+            --button-bg: #2563eb;
+            --button-text: #ffffff;
+            --input-bg: #071127;
+            --log-bg: #071127;
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-color: var(--border);
+            color: var(--text);
+        }
+
+        .log {
+            background: var(--log-bg);
+            border-color: rgba(255, 255, 255, 0.03);
+            color: var(--text);
+        }
+
+        input[type=text],
+        select {
+            background: var(--input-bg);
+            color: var(--text);
+            border-color: var(--border);
+        }
+
+        button {
+            background: var(--button-bg);
+            color: var(--button-text);
+        }
+
+        /* Theme toggle small styling */
+        #theme_toggle {
+            padding: 6px 10px;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--text);
+            cursor: pointer;
+        }
     </style>
 </head>
 
 <body>
-    <h1>Blacklist / Whitelist Admin</h1>
+    <div style="display:flex;align-items:center;gap:12px;">
+        <h1 style="margin:0;">Blacklist / Whitelist Admin</h1>
+        <button id="theme_toggle" title="Toggle dark mode">🌙</button>
+    </div>
+
+    <div id="global_status" class="log"></div>
 
     <div class="card">
         <h3>1) Blacklist a Track (fixed = true)</h3>
@@ -110,16 +216,67 @@
             return res.json();
         }
 
+        // Theme init/toggle: respects localStorage, then OS preference
+        function applyTheme(dark) {
+            if (dark) document.body.classList.add('dark');
+            else document.body.classList.remove('dark');
+            const btn = document.getElementById('theme_toggle');
+            if (btn) btn.textContent = dark ? '☀️' : '🌙';
+        }
+
+        function initTheme() {
+            try {
+                const stored = localStorage.getItem('theme');
+                if (stored === 'dark') { applyTheme(true); return; }
+                if (stored === 'light') { applyTheme(false); return; }
+            } catch (e) { }
+            // fallback to prefers-color-scheme
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            applyTheme(prefersDark);
+        }
+
+        function toggleTheme() {
+            const isDark = document.body.classList.contains('dark');
+            const next = !isDark;
+            try { localStorage.setItem('theme', next ? 'dark' : 'light'); } catch (e) { }
+            applyTheme(next);
+        }
+
+        // hook up toggle button immediately
+        document.addEventListener('DOMContentLoaded', () => {
+            const btn = document.getElementById('theme_toggle');
+            if (btn) btn.addEventListener('click', toggleTheme);
+            initTheme();
+        });
+
+        // Global status helper: msg string and ok can be true/false/null
+        function showStatus(msg, ok = null) {
+            const el = document.getElementById("global_status");
+            if (!el) return;
+            el.textContent = msg || "";
+            el.classList.remove("ok", "err");
+            if (ok === true) el.classList.add("ok");
+            else if (ok === false) el.classList.add("err");
+        }
+
         document.getElementById("track_btn").addEventListener("click", async () => {
             const val = document.getElementById("track_input").value.trim();
             const out = document.getElementById("track_out");
             out.textContent = "Sending...";
+            showStatus("Sending...", null);
             try {
                 const r = await postJson("/api/blacklist_track", { input: val });
-                if (r.ok) out.innerHTML = "<span class='ok'>" + r.msg + "</span>";
-                else out.innerHTML = "<span class='err'>" + (r.error || JSON.stringify(r)) + "</span>";
+                if (r.ok) {
+                    out.innerHTML = "<span class='ok'>" + r.msg + "</span>";
+                    showStatus(r.msg, true);
+                } else {
+                    out.innerHTML = "<span class='err'>" + (r.error || JSON.stringify(r)) + "</span>";
+                    showStatus(r.error || JSON.stringify(r), false);
+                }
             } catch (e) {
-                out.innerHTML = "<span class='err'>Network error: " + e + "</span>";
+                const msg = "Network error: " + e;
+                out.innerHTML = "<span class='err'>" + msg + "</span>";
+                showStatus(msg, false);
             }
         });
 
@@ -128,12 +285,20 @@
             const flag = document.getElementById("playlist_flag").value === "true";
             const out = document.getElementById("playlist_out");
             out.textContent = "Sending...";
+            showStatus("Sending...", null);
             try {
                 const r = await postJson("/api/blacklist_playlist", { input: val, blacklisted: flag });
-                if (r.ok) out.innerHTML = "<span class='ok'>" + r.msg + "</span>";
-                else out.innerHTML = "<span class='err'>" + (r.error || JSON.stringify(r)) + "</span>";
+                if (r.ok) {
+                    out.innerHTML = "<span class='ok'>" + r.msg + "</span>";
+                    showStatus(r.msg, true);
+                } else {
+                    out.innerHTML = "<span class='err'>" + (r.error || JSON.stringify(r)) + "</span>";
+                    showStatus(r.error || JSON.stringify(r), false);
+                }
             } catch (e) {
-                out.innerHTML = "<span class='err'>Network error: " + e + "</span>";
+                const msg = "Network error: " + e;
+                out.innerHTML = "<span class='err'>" + msg + "</span>";
+                showStatus(msg, false);
             }
         });
 
@@ -141,12 +306,20 @@
             const val = document.getElementById("profile_input").value.trim();
             const out = document.getElementById("profile_out");
             out.textContent = "Sending...";
+            showStatus("Sending...", null);
             try {
                 const r = await postJson("/api/whitelist_profile", { input: val });
-                if (r.ok) out.innerHTML = "<span class='ok'>" + r.msg + "</span>";
-                else out.innerHTML = "<span class='err'>" + (r.error || JSON.stringify(r)) + "</span>";
+                if (r.ok) {
+                    out.innerHTML = "<span class='ok'>" + r.msg + "</span>";
+                    showStatus(r.msg, true);
+                } else {
+                    out.innerHTML = "<span class='err'>" + (r.error || JSON.stringify(r)) + "</span>";
+                    showStatus(r.error || JSON.stringify(r), false);
+                }
             } catch (e) {
-                out.innerHTML = "<span class='err'>Network error: " + e + "</span>";
+                const msg = "Network error: " + e;
+                out.innerHTML = "<span class='err'>" + msg + "</span>";
+                showStatus(msg, false);
             }
         });
     </script>
